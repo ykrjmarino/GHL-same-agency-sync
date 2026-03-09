@@ -1,6 +1,8 @@
 import express from 'express';
 import axios from 'axios';
 import dotenv from 'dotenv';
+import qs from 'qs';
+import fs from 'fs';
 
 dotenv.config(); 
 
@@ -8,6 +10,14 @@ const app = express();
 const port = process.env.PORT || 3001;
 
 app.use(express.json());
+
+const CLIENT_ID = process.env.CLIENT_ID;
+const CLIENT_SECRET = process.env.CLIENT_SECRET;
+
+function getTokens() {
+  const raw = fs.readFileSync("tokens.json");
+  return JSON.parse(raw);
+}
 
 //practice console log
 /*
@@ -24,15 +34,50 @@ app.post('/webhook/nola', async (req, res) => {
 });
 */
 
+//OAuth callback endpoint to exchange code for access token
+app.get('/oauth/callback', async (req, res) => {
+  const code = req.query.code; //from HighLevel
+  if (!code) return res.status(400).send('No code provided');
+
+  try {
+    const response = await axios.post(
+      'https://services.leadconnectorhq.com/oauth/token',
+      qs.stringify({
+        grant_type: 'authorization_code',
+        client_id: CLIENT_ID,
+        client_secret: CLIENT_SECRET,
+        redirect_uri: process.env.REDIRECT_URI,
+        code: code
+      }),
+      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+    );
+
+    const { access_token } = response.data;
+    console.log('Access token:', access_token);
+    console.log(response.data);
+
+    res.json(response.data);
+  } catch (err) {
+    console.error(err.response?.data || err.message);
+    res.status(500).send('Error exchanging code for token');
+  }
+});
+
 //this is the endpoint the webhook will call
 app.post('/webhook/nola', async (req, res) => {
-  const ACCESS_TOKEN = process.env.ACCESS_TOKEN;
-  const LOCATION_ID = process.env.LOCATION_ID;
+  //const ACCESS_TOKEN = process.env.ACCESS_TOKEN;
+  //const LOCATION_ID = process.env.LOCATION_ID; 
+          //for ref only (optional),, this is static
   const CUSTOM_FIELD_ID = process.env.CUSTOM_FIELD_ID;
   const CUSTOM_FIELD_KEY = process.env.CUSTOM_FIELD_KEY;
 
+  const tokens = getTokens();
+  const accessToken = tokens.access_token;
+  const locationId = tokens.locationId;
+
   const contact = req.body;
-  const triggered_tag = contact.customData?.triggered_tag;
+  const triggered_tag = contact.customData?.triggered_tag; 
+                      //contact.customData?.triggered_tag
   console.log('==================================================');
   //console.log('Received full body:', contact);
   console.log('Received contact:', contact.contact_id, contact.first_name, contact.last_name);
@@ -47,10 +92,10 @@ app.post('/webhook/nola', async (req, res) => {
         headers: {
           Accept: 'application/json',
           Version: '2021-07-28',
-          Authorization: `Bearer ${ACCESS_TOKEN}`
+          Authorization: `Bearer ${accessToken}`
         },
         params: {
-          locationId: LOCATION_ID,
+          locationId: locationId,
           limit: 100  // optional, you can page if more than 100
         }
       }
@@ -99,7 +144,7 @@ app.post('/webhook/nola', async (req, res) => {
               'Content-Type': 'application/json',
               Accept: 'application/json',
               Version: '2021-07-28',
-              Authorization: `Bearer ${ACCESS_TOKEN}`
+              Authorization: `Bearer ${accessToken}`
             }
           }
         );
@@ -141,7 +186,7 @@ app.post('/webhook/nola', async (req, res) => {
             field_value: source_contact_id
           }
         ],
-        locationId: LOCATION_ID
+        locationId: locationId
       };
 
       console.log('Payload to NOLA (create):', JSON.stringify(createData, null, 2));
@@ -154,7 +199,7 @@ app.post('/webhook/nola', async (req, res) => {
             'Content-Type': 'application/json',
             Accept: 'application/json',
             Version: '2021-07-28',
-            Authorization: `Bearer ${ACCESS_TOKEN}`
+            Authorization: `Bearer ${accessToken}`
           }
         }
       );
