@@ -10,6 +10,7 @@ const app = express();
 const port = process.env.PORT || 3001;
 
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 const CLIENT_ID = process.env.CLIENT_ID;
 const CLIENT_SECRET = process.env.CLIENT_SECRET;
@@ -75,9 +76,15 @@ app.post('/webhook/nola', async (req, res) => {
   const accessToken = tokens.access_token;
   const locationId = tokens.locationId;
 
-  const contact = req.body;
-  const triggered_tag = contact.customData?.triggered_tag; 
-                      //contact.customData?.triggered_tag
+  // HighLevel sends the payload as a single key
+  const rawPayload = Object.keys(req.body)[0];
+  const contact = JSON.parse(rawPayload); // now you get proper fields
+
+  console.log('Received contact:', contact.contact_id, contact.first_name, contact.last_name);
+
+  console.log('Received payload:', JSON.stringify(req.body, null, 2));
+  const triggered_tag = contact.triggered_tag;
+                      //contact.customData?.triggered_tag;
   console.log('==================================================');
   //console.log('Received full body:', contact);
   console.log('Received contact:', contact.contact_id, contact.first_name, contact.last_name);
