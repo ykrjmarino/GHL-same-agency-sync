@@ -110,19 +110,18 @@ app.post('/webhook/nola', async (req, res) => {
     );
 
     //filter in code by custom field intern_contact_id
-    // const existingContact = response.data.contacts.find(c =>
-    //   c.customFields?.some(f => f.id === CUSTOM_FIELD_ID && f.value === source_contact_id)
-    // );
+    const existingContact = response.data.contacts.find(c =>
+      c.customFields?.some(f => f.id === CUSTOM_FIELD_ID && f.value?.trim() === source_contact_id?.trim())
+    );
     
     // lol, mali pala to, tagal ko nagdebug tas yan lang.. for memories::
     // uh naging tama na sya when i use it sa private app sa marketplace.. ewan bakit,,
-    const existingContact = response.data.contacts.find(c =>
-      c.customFields?.some(f => f.id === CUSTOM_FIELD_ID && f.field_value === source_contact_id)
-    );
+    // const existingContact = response.data.contacts.find(c =>
+    //   c.customFields?.some(f => f.id === CUSTOM_FIELD_ID && f.field_value === source_contact_id)
+    // );
     console.log('source_contact_id:', source_contact_id);
     console.log('Total contacts:', response.data.contacts.length);
-
-
+    console.log('existingContact:', existingContact);
     console.log('Existing NOLA contact:', existingContact);
 
     //Next: decide update or create based on existingContact
